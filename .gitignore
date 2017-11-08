@@ -28,6 +28,7 @@ wheels/
 
 * MY
 venv
+creditcard.csv
 
 
 # PyInstaller
