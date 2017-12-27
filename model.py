@@ -34,7 +34,7 @@ class Layer:
 
         self.input = np.asmatrix(np.zeros((input_dim + 1, 1)))
         self.output = np.asmatrix(np.zeros((neurons_number, 1)))
-        self.weights = np.asmatrix(np.random.rand(input_dim + 1, neurons_number))
+        self.weights = np.asmatrix(np.random.uniform(low=-0.1, high=0.1, size=( input_dim + 1, neurons_number)))
         self.deltas = None
 
     def forward_prop(self, input):
@@ -91,7 +91,7 @@ class NeuralNetwork:
         self.epochs = epochs
         self.loss = loss
 
-    def add_layer(self, input_dim, neurons_number, activation='relu', output_layer=False):
+    def add_layer(self, input_dim, neurons_number, activation='sigmoid', output_layer=False):
         layer = Layer(input_dim, neurons_number, learning_rate=self.lerning_rate, activation=activation, output_layer=output_layer)
         self.layers.append(layer)
 
@@ -131,7 +131,8 @@ class NeuralNetwork:
             # from sklearn.metrics import log_loss
             # return - np.sum(y_train*(np.log(y_predicted+np.finfo(float).eps)) + (1-y_train)*np.log(1+np.finfo(float).eps-y_predicted))
             # return log_loss(y_train, y_predicted, eps=1e-5)
-            pass
+            cost = -np.sum(np.multiply(y_train,np.log(y_predicted)) + np.multiply((1-y_train),np.log(1-y_predicted)))
+            return (cost / y_train.shape[0])
 
     def fit(self, x_train, y_train):
         for i in range(self.epochs):
@@ -140,8 +141,10 @@ class NeuralNetwork:
                 y_train_batch = y_train[idx:idx+self.batch_size]
 
                 y_predicted_batch = self.forward_prop(x_train_batch)
-                self.back_prop(y_predicted_batch, y_train_batch)
+                print(idx)
                 self.show_loss(x_train, y_train)
+                self.back_prop(y_predicted_batch, y_train_batch)
+
 
     def show_loss(self, x_train, y_train):
         y_predicted = self.forward_prop(x_train)
@@ -174,39 +177,38 @@ if __name__ == '__main__':
     # Convert test data to numpyarray and split them.
     test = test.values
     x_test = test[:, :-1]
-    y_test = test[:, -1:]
+    y_test = test[:, -1]
 
     # Create balanced, under sample train and validation dataset
     fraud_indices = np.array(train_and_validation[train_and_validation.Class == 1].index)
     normal_indices = np.array(train_and_validation[train_and_validation.Class == 0].index)
-
+    print(fraud_indices, normal_indices)
     random_normal_indices = np.random.choice(normal_indices, NUMBER_OF_OK_TRANSACTIONS_IN_TRAIN_VALIDATION_DATASET, replace=False)
     random_normal_indices = np.array(random_normal_indices)
-
+    print(random_normal_indices)
     under_sample_indices = np.concatenate([fraud_indices, random_normal_indices])
-
     under_sample_dataset = dataset.iloc[under_sample_indices, :]
-
+    print(under_sample_dataset.size)
     # Shuffle train and validation dataset
     under_sample_dataset = under_sample_dataset.sample(frac=1)
-
+    print(under_sample_dataset.size)
     # Convert training and validation dataset to numpy array
     under_sample_dataset = under_sample_dataset.values
 
     train, validation = train_test_split(under_sample_dataset, test_size=0.3, random_state=0)
 
     x_train = train[:, :-1]
-    y_train = train[:, -1:]
+    y_train = train[:, -1]
 
     x_validation = validation[:, :-1]
     y_validation = validation[:, -1:]
 
-    model = NeuralNetwork(learning_rate=0.01, batch_size=4, epochs=5000, loss='mse')
-    model.add_layer(input_dim=2, neurons_number=1024, activation='relu', output_layer=False)
+    model = NeuralNetwork(learning_rate=0.00002, batch_size=1, epochs=2, loss='logloss')
+    model.add_layer(input_dim=x_train.shape[1], neurons_number=1024, activation='sigmoid', output_layer=False)
     model.add_layer(input_dim=1024, neurons_number=1, activation='sigmoid', output_layer=True)
 
-    x_train = np.asarray([[0,0], [0,1], [1,0], [1,1]])
-    y_train = np.asarray([[0], [0], [0], [1]])
+    #x_train = np.asarray([[0,0], [0,1], [1,0], [1,1]])
+    #y_train = np.asarray([[0], [0], [0], [1]])
 
     model.fit(x_train, y_train)
     model.evaluate()
