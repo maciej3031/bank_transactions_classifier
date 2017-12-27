@@ -203,7 +203,7 @@ if __name__ == '__main__':
     x_validation = validation[:, :-1]
     y_validation = validation[:, -1:]
 
-    model = NeuralNetwork(learning_rate=0.00002, batch_size=1, epochs=2, loss='logloss')
+    model = NeuralNetwork(learning_rate=0.00001, batch_size=1, epochs=2, loss='logloss')
     model.add_layer(input_dim=x_train.shape[1], neurons_number=1024, activation='sigmoid', output_layer=False)
     model.add_layer(input_dim=1024, neurons_number=1, activation='sigmoid', output_layer=True)
 
