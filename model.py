@@ -10,7 +10,7 @@ class ActivationFunctions:
 
     @staticmethod
     def sigmoid(x):
-        return np.multiply(.5, (1 + np.tanh(np.multiply(.5, x))))
+        return 1 / (1 + np.exp(-x))
 
 
 class ActivationDerivatives:
@@ -26,36 +26,29 @@ class ActivationDerivatives:
 
 # TODO add regularization
 class Layer:
-    def __init__(self, input_dim, neurons_number, learning_rate, activation, output_layer):
+    def __init__(self, input_dim, neurons_number, learning_rate, activation):
         self.activation = activation
         self.learning_rate = learning_rate
 
-        self.output_layer = output_layer
+        self.output_layer = True
 
         self.input = np.asmatrix(np.zeros((input_dim + 1, 1)))
         self.output = np.asmatrix(np.zeros((neurons_number, 1)))
         self.weights = np.asmatrix(np.random.uniform(low=-0.1, high=0.1, size=( input_dim + 1, neurons_number)))
         self.deltas = None
 
-    def forward_prop(self, input):
-        self.set_input(input)
-        self.set_output()
+    def forward_step(self, input):
+        self.input = np.concatenate([[[1]], input])  # Add bias
+        self.output = self.activate(np.matmul(self.weights.transpose(), self.input))
         return self.output
 
-    def set_input(self, input):
-        self.input = np.concatenate([[[1]], input])  # Add bias
-
-    def set_output(self):
-        self.output = self.activate(np.matmul(self.weights.transpose(), self.input))
-
-    def activate(self, x):
-        """ x must be numpy matrix """
+    def activate(self, matrix):
         if self.activation == 'relu':
-            return ActivationFunctions.relu(x)
+            return ActivationFunctions.relu(matrix)
         elif self.activation == 'sigmoid':
-            return ActivationFunctions.sigmoid(x)
+            return ActivationFunctions.sigmoid(matrix)
 
-    def back_prop(self, next_weights=None, next_deltas=None, output_delta=None, y_predicted_batch=None):
+    def backward_step(self, next_weights=None, next_deltas=None, output_delta=None, y_predicted_batch=None):
         if self.output_layer:
             self.set_deltas_output_layer(output_delta)
         else:
@@ -67,13 +60,13 @@ class Layer:
         self.weights = self.weights - np.multiply(self.learning_rate, gradient)
 
     def set_deltas(self, next_weights, next_deltas, y_predicted_batch):
-        self.deltas = np.multiply(np.matmul(np.delete(next_weights, 0, 0), next_deltas), np.sum(ActivationDerivatives.relu(y_predicted_batch), axis=0))  # Exclude bias row from weights
+        self.deltas = np.multiply(np.delete(next_weights, 0, 0), (next_deltas @ np.sum(ActivationDerivatives.relu(y_predicted_batch), axis=0)))  # Exclude bias row from weights
 
     def set_deltas_output_layer(self, output_delta):
         self.deltas = output_delta
 
     def get_gradient(self):
-        return np.matmul(self.input, self.deltas.transpose())
+        return self.input @ self.deltas.transpose()
 
     def get_deltas(self):
         return self.deltas
@@ -81,8 +74,6 @@ class Layer:
     def get_weights(self):
         return self.weights
 
-
-# TODO add logloss loss function
 class NeuralNetwork:
     def __init__(self, learning_rate, batch_size=50, epochs=20, loss='mse'):
         self.layers = []
@@ -91,32 +82,34 @@ class NeuralNetwork:
         self.epochs = epochs
         self.loss = loss
 
-    def add_layer(self, input_dim, neurons_number, activation='sigmoid', output_layer=False):
-        layer = Layer(input_dim, neurons_number, learning_rate=self.lerning_rate, activation=activation, output_layer=output_layer)
+    def add_layer(self, input_dim, neurons_number, activation='sigmoid'):
+        layer = Layer(input_dim, neurons_number, learning_rate=self.lerning_rate, activation=activation)
+        if self.layers:
+            self.layers[-1].output_layer = False
         self.layers.append(layer)
 
-    def forward_prop(self, x_train_batch):
+    def forward_step(self, x_train_batch):
         y_predicted_batch = []
         for x_train_record in x_train_batch:
             x_train_record = np.reshape(x_train_record, (x_train_record.shape[0], 1))
             for layer in self.layers:
-                x_train_record = layer.forward_prop(x_train_record)
+                x_train_record = layer.forward_step(x_train_record)
             y_predicted_batch.append(x_train_record)
 
         return np.concatenate(y_predicted_batch)
 
-    def back_prop(self, y_predicted_batch, y_train_batch):
+    def backward_step(self, y_predicted_batch, y_train_batch):
 
         output_delta = self.count_output_delta(y_predicted_batch, y_train_batch)
 
         output_layer = self.layers[-1]
-        output_layer.back_prop(output_delta=output_delta, y_predicted_batch=y_predicted_batch)
+        output_layer.backward_step(output_delta=output_delta, y_predicted_batch=y_predicted_batch)
 
         next_deltas = output_layer.get_deltas()
         next_weights = output_layer.get_weights()
 
         for layer in reversed(self.layers[:-1]):
-            layer.back_prop(next_weights=next_weights, next_deltas=next_deltas, y_predicted_batch=y_predicted_batch)
+            layer.backward_step(next_weights=next_weights, next_deltas=next_deltas, y_predicted_batch=y_predicted_batch)
 
     def count_output_delta(self, y_predicted_batch, y_train_batch):
         if self.loss == 'mse':
@@ -128,11 +121,8 @@ class NeuralNetwork:
         if self.loss == 'mse':
             return np.sum(0.5 * (np.square(y_predicted - y_train)))
         elif self.loss == 'logloss':
-            # from sklearn.metrics import log_loss
-            # return - np.sum(y_train*(np.log(y_predicted+np.finfo(float).eps)) + (1-y_train)*np.log(1+np.finfo(float).eps-y_predicted))
-            # return log_loss(y_train, y_predicted, eps=1e-5)
             cost = -np.sum(np.multiply(y_train,np.log(y_predicted)) + np.multiply((1-y_train),np.log(1-y_predicted)))
-            return (cost / y_train.shape[0])
+            return cost / y_train.shape[0]
 
     def fit(self, x_train, y_train):
         for i in range(self.epochs):
@@ -140,14 +130,14 @@ class NeuralNetwork:
                 x_train_batch = x_train[idx:idx+self.batch_size]
                 y_train_batch = y_train[idx:idx+self.batch_size]
 
-                y_predicted_batch = self.forward_prop(x_train_batch)
+                y_predicted_batch = self.forward_step(x_train_batch)
                 print(idx)
                 self.show_loss(x_train, y_train)
-                self.back_prop(y_predicted_batch, y_train_batch)
+                self.backward_step(y_predicted_batch, y_train_batch)
 
 
     def show_loss(self, x_train, y_train):
-        y_predicted = self.forward_prop(x_train)
+        y_predicted = self.forward_step(x_train)
         loss = self.count_loss(y_predicted, y_train)
 
         y_predicted_labels = np.round(y_predicted)
@@ -161,7 +151,7 @@ class NeuralNetwork:
         pass
 
     def predict(self, x_train):
-        return self.forward_prop(x_train)
+        return self.forward_step(x_train)
 
 
 if __name__ == '__main__':
@@ -204,8 +194,8 @@ if __name__ == '__main__':
     y_validation = validation[:, -1:]
 
     model = NeuralNetwork(learning_rate=0.00001, batch_size=1, epochs=2, loss='logloss')
-    model.add_layer(input_dim=x_train.shape[1], neurons_number=1024, activation='sigmoid', output_layer=False)
-    model.add_layer(input_dim=1024, neurons_number=1, activation='sigmoid', output_layer=True)
+    model.add_layer(input_dim=x_train.shape[1], neurons_number=1024, activation='sigmoid')
+    model.add_layer(input_dim=1024, neurons_number=1, activation='sigmoid')
 
     #x_train = np.asarray([[0,0], [0,1], [1,0], [1,1]])
     #y_train = np.asarray([[0], [0], [0], [1]])
