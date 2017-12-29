@@ -132,6 +132,7 @@ class NeuralNetwork:
 
                 y_predicted_batch = self.forward_step(x_train_batch)
                 print(idx)
+
                 self.show_loss(x_train, y_train)
                 self.backward_step(y_predicted_batch, y_train_batch)
 
@@ -147,11 +148,6 @@ class NeuralNetwork:
         print("Loss: ", loss)
         print("Accuracy: ", accuracy_score(y_train, y_predicted_labels))
 
-    def evaluate(self):
-        pass
-
-    def predict(self, x_train):
-        return self.forward_step(x_train)
 
 
 if __name__ == '__main__':
@@ -194,13 +190,14 @@ if __name__ == '__main__':
     y_validation = validation[:, -1:]
 
     model = NeuralNetwork(learning_rate=0.00001, batch_size=1, epochs=2, loss='logloss')
-    model.add_layer(input_dim=x_train.shape[1], neurons_number=1024, activation='sigmoid')
-    model.add_layer(input_dim=1024, neurons_number=1, activation='sigmoid')
+    model.add_layer(input_dim=x_train.shape[1], neurons_number=16, activation='sigmoid')
+    model.add_layer(input_dim=16, neurons_number=1, activation='sigmoid')
 
+    # logical AND
     #x_train = np.asarray([[0,0], [0,1], [1,0], [1,1]])
     #y_train = np.asarray([[0], [0], [0], [1]])
 
     model.fit(x_train, y_train)
     model.evaluate()
-    print(model.layers[0].weights)
-    print(model.predict(x_train))
+    #print(model.layers[0].weights)
+    #print(model.predict(x_train))
