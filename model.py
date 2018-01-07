@@ -1,16 +1,35 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, mean_squared_error
-import matplotlib.pyplot as plt
 
 
 def sigmoid(x):
     return np.multiply(0.5, (1 + np.tanh(np.multiply(0.5, x))))
 
 
+def relu(x):
+    return x.clip(min=0)
+
+
 def sigmoid_derivative(x):
     return np.multiply(x, (1 - x))
+
+
+def relu_derivative(x):
+    x[x > 0] = 1
+    x[x <= 0] = 0
+    return x
+
+
+def accuracy_score(actual, predicted):
+    predicted = predicted.reshape(-1, )
+    actual = actual.reshape(-1, )
+
+    TP = np.count_nonzero(np.multiply(predicted, actual))
+    TN = np.count_nonzero(np.multiply(predicted - 1, actual - 1))
+
+    return (TP + TN) / actual.shape[0]
 
 
 class Layer:
@@ -22,13 +41,15 @@ class Layer:
 
         self.input = np.asmatrix(np.zeros((input_dim + 1, 1)))
         self.output = np.asmatrix(np.zeros((neurons_number, 1)))
-        self.weights = np.asmatrix(np.random.uniform(low=-1, high=1, size=(input_dim + 1, neurons_number)))
+        self.weights = np.asmatrix(np.random.uniform(low=-2/(neurons_number**0.5), high=2/(neurons_number**0.5), size=(input_dim + 1, neurons_number)))
         self.deltas = np.asmatrix(np.zeros((neurons_number, 1)))
         self.cumulative_gradient = np.asmatrix(np.zeros((input_dim + 1, neurons_number)))
 
-    def _activate(self, matrix):
+    def _activate(self, x):
         if self.activation == 'sigmoid':
-            return sigmoid(matrix)
+            return sigmoid(x)
+        elif self.activation == 'relu':
+            return relu(x)
 
     def _get_gradient(self):
         return np.matmul(self.input, self.deltas.transpose())
@@ -42,11 +63,17 @@ class Layer:
         if self.output_layer:
             self.deltas = output_delta
         else:
-            derivative_of_activation = sigmoid_derivative(self.output)
+            derivative_of_activation = self.get_activation_derivative(self.output)
             self.deltas = np.multiply(np.matmul(np.delete(next_weights, 0, 0), next_deltas),
                                       derivative_of_activation)  # Exclude bias row from weights
 
         self.cumulative_gradient = self.cumulative_gradient + self._get_gradient()
+
+    def get_activation_derivative(self, x):
+        if self.activation == 'sigmoid':
+            return sigmoid_derivative(x)
+        elif self.activation == 'relu':
+            return relu_derivative(x)
 
     def get_deltas(self):
         return self.deltas
@@ -92,24 +119,24 @@ class NeuralNetwork:
 
     def _count_output_delta(self, y_predicted, y_actual):
         if self.loss == 'mse':
-            return np.sum(np.multiply((y_predicted - y_actual), sigmoid_derivative(y_predicted)), axis=0)
+            return np.sum(np.multiply((y_predicted - y_actual), self.layers[-1].get_activation_derivative(y_predicted)), axis=0)
 
-    def _count_loss(self, y_predicted, y_actual):
-        if self.loss == 'mse':
-            return mean_squared_error(y_actual, y_predicted)
+    def _save_loss(self, x_tr, y_tr, x_val, y_val):
+        y_predicted_train = self._global_forward_step(x_tr)
+        y_predicted_validation = self._global_forward_step(x_val)
 
-    def _save_loss(self, x_train, y_train, x_validation, y_validation):
-        y_predicted_train = self._global_forward_step(x_train)
-        y_predicted_validation = self._global_forward_step(x_validation)
-
-        train_loss = self._count_loss(y_predicted_train, y_train)
-        validation_loss = self._count_loss(y_predicted_validation, y_validation)
+        train_loss = self._count_loss(y_predicted_train, y_tr)
+        validation_loss = self._count_loss(y_predicted_validation, y_val)
 
         self.training_history.append(train_loss)
         self.validation_history.append(validation_loss)
 
         print("Loss: ", train_loss)
-        print("Accuracy: ", accuracy_score(y_train, np.round(y_predicted_train)))
+        print("Accuracy: ", accuracy_score(y_tr, np.round(y_predicted_train)))
+
+    def _count_loss(self, y_predicted, y_actual):
+        if self.loss == 'mse':
+            return np.average(np.square(y_actual - y_predicted))
 
     def add_layer(self, input_dim, neurons_number, activation='sigmoid'):
         layer = Layer(input_dim, neurons_number, learning_rate=self.lerning_rate, activation=activation)
@@ -117,11 +144,11 @@ class NeuralNetwork:
             self.layers[-1].output_layer = False
         self.layers.append(layer)
 
-    def fit(self, x_train, y_train, x_validation, y_validation):
+    def fit(self, x_tr, y_tr, x_val, y_val):
         for i in range(self.epochs):
-            for idx in range(0, x_train.shape[0], self.batch_size):
-                x_train_batch = x_train[idx:idx + self.batch_size]
-                y_train_batch = y_train[idx:idx + self.batch_size]
+            for idx in range(0, x_tr.shape[0], self.batch_size):
+                x_train_batch = x_tr[idx:idx + self.batch_size]
+                y_train_batch = y_tr[idx:idx + self.batch_size]
 
                 for n, x_train_record in enumerate(x_train_batch):
                     x_train_record = x_train_record.reshape(1, -1)
@@ -132,7 +159,7 @@ class NeuralNetwork:
                     gradient = lyr.cumulative_gradient / x_train_batch.shape[0] + self.regular_lambda * lyr.weights
                     lyr.weights = lyr.weights - np.multiply(self.lerning_rate, gradient)
                     lyr.BIG_DELTAS = np.asmatrix(np.zeros(lyr.cumulative_gradient.shape))
-            self._save_loss(x_train, y_train, x_validation, y_validation)
+            self._save_loss(x_tr, y_tr, x_val, y_val)
 
     def predict(self, x):
         return self._global_forward_step(x)
@@ -185,12 +212,12 @@ if __name__ == '__main__':
     NUMBER_OF_OK_TRANSACTIONS_IN_TRAIN_VALIDATION_DATASET = 400
 
     # Split dataset on train_and_validation dataset and test dataset
-    train_and_validation, test = train_test_split(dataset, test_size=0.3, random_state=0)
+    train_and_validation, test = train_test_split(dataset, test_size=0.2, random_state=0)
 
     # Convert test data to numpyarray and split them.
     test = test.values
     x_test = test[:, :-1]
-    y_test = test[:, -1]
+    y_test = test[:, -1:]
 
     # Create balanced, under sample train and validation dataset
     fraud_indices = np.array(train_and_validation[train_and_validation.Class == 1].index)
@@ -208,13 +235,13 @@ if __name__ == '__main__':
     train, validation = train_test_split(under_sample_dataset, test_size=0.3, random_state=0)
 
     x_train = train[:, :-1]
-    y_train = train[:, -1]
+    y_train = train[:, -1:]
 
     x_validation = validation[:, :-1]
     y_validation = validation[:, -1:]
 
-    model = NeuralNetwork(learning_rate=0.005, batch_size=50, epochs=120, loss='mse', regular_lambda=0.005)
-    model.add_layer(input_dim=x_train.shape[1], neurons_number=512, activation='sigmoid')
+    model = NeuralNetwork(learning_rate=0.00001, batch_size=50, epochs=80, loss='mse', regular_lambda=0.07)
+    model.add_layer(input_dim=x_train.shape[1], neurons_number=512, activation='relu')
     model.add_layer(input_dim=512, neurons_number=1, activation='sigmoid')
 
     model.fit(x_train, y_train, x_validation, y_validation)
