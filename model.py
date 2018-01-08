@@ -1,3 +1,5 @@
+import os
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -59,7 +61,7 @@ class Layer:
 
         self.input = np.asmatrix(np.zeros((input_dim + 1, 1)))
         self.output = np.asmatrix(np.zeros((neurons_number, 1)))
-        self.weights = np.asmatrix(np.random.uniform(low=-2/(neurons_number**0.5), high=2/(neurons_number**0.5), size=(input_dim + 1, neurons_number)))
+        self.weights = np.asmatrix(np.random.uniform(low=-2/(input_dim**0.5), high=2/(input_dim**0.5), size=(input_dim + 1, neurons_number)))
         self.deltas = np.asmatrix(np.zeros((neurons_number, 1)))
         self.cumulative_gradient = np.asmatrix(np.zeros((input_dim + 1, neurons_number)))
 
@@ -223,7 +225,7 @@ class NeuralNetwork:
 
 
 if __name__ == '__main__':
-    dataset = pd.read_csv('creditcard.csv')
+    dataset = pd.read_csv(os.path.join('data','creditcard.csv'))
     assert not dataset.isnull().values.any()
     dataset = dataset.drop(['Time', 'Amount'], axis=1)
     NUMBER_OF_FEATURES = dataset.shape[1] - 1
@@ -266,9 +268,10 @@ if __name__ == '__main__':
         x_validation = validation[:, :-1]
         y_validation = validation[:, -1:]
 
-        model = NeuralNetwork(learning_rate=0.00001, batch_size=50, epochs=80, loss='mse', regular_lambda=0.07)
-        model.add_layer(input_dim=x_train.shape[1], neurons_number=512, activation='relu')
-        model.add_layer(input_dim=512, neurons_number=1, activation='sigmoid')
+        # 553
+        model = NeuralNetwork(learning_rate=0.001, batch_size=553, epochs=100, loss='mse', regular_lambda=0.1)
+        model.add_layer(input_dim=x_train.shape[1], neurons_number=1024, activation='relu')
+        model.add_layer(input_dim=1024, neurons_number=1, activation='sigmoid')
 
         model.fit(x_train, y_train, x_validation, y_validation)
 
@@ -279,4 +282,6 @@ if __name__ == '__main__':
         print("\nTest dataset evaluation:")
         model.evaluate(x_test, y_test)
         model.plot_confusion_matrix(x_test, y_test)
-# print(model.layers[0].weights)
+        # print(model.layers[0].weights)
+
+    # ROC, confusion matrix, learning curves.
