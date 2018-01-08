@@ -31,6 +31,24 @@ def accuracy_score(actual, predicted):
 
     return (TP + TN) / actual.shape[0]
 
+def validation_k_fold(dataset, k, number_of_iteration):
+    rows = dataset.shape[0]
+    x = rows % k
+    rows = rows - x
+    numberofline_1 = (rows/k)*number_of_iteration
+    numberofline_2 = numberofline_1 + (rows/k) - 1
+    if number_of_iteration == (k-1):
+        numberofline_2 = numberofline_2 + x
+    test = dataset.values[int(numberofline_1):int(numberofline_2),:]
+    if number_of_iteration == 0:
+        train_and_validation = dataset.values[int(numberofline_2+1):,:]
+        return train_and_validation, test
+    if number_of_iteration == k-1:
+        train_and_validation = dataset.values[:int(numberofline_1-1),:]
+        return train_and_validation, test
+    train_and_validation = [[dataset.values[0:int(numberofline_1-1),:]],[dataset.values[int(numberofline_2+1):,:]]]
+    return train_and_validation, test
+
 
 class Layer:
     def __init__(self, input_dim, neurons_number, learning_rate, activation):
@@ -210,47 +228,55 @@ if __name__ == '__main__':
     dataset = dataset.drop(['Time', 'Amount'], axis=1)
     NUMBER_OF_FEATURES = dataset.shape[1] - 1
     NUMBER_OF_OK_TRANSACTIONS_IN_TRAIN_VALIDATION_DATASET = 400
-
     # Split dataset on train_and_validation dataset and test dataset
-    train_and_validation, test = train_test_split(dataset, test_size=0.2, random_state=0)
+    #train_and_validation, test = train_test_split(dataset, test_size=0.2, random_state=0)
+
+    #k-fold validation with k=5
+    #parametr k
+    k_fold = [0,1,2,3,4]
+    for i in k_fold:
+        k = 5
+        train_and_validation, test = validation_k_fold(dataset, k, i)
+
+        # train_and_validation i test to są numpyarrays
 
     # Convert test data to numpyarray and split them.
-    test = test.values
-    x_test = test[:, :-1]
-    y_test = test[:, -1:]
+        #test = test.values
+        x_test = test[:, :-1] # test już jest numpyarray
+        y_test = test[:, -1:]
 
     # Create balanced, under sample train and validation dataset
-    fraud_indices = np.array(train_and_validation[train_and_validation.Class == 1].index)
-    normal_indices = np.array(train_and_validation[train_and_validation.Class == 0].index)
-    random_normal_indices = np.random.choice(normal_indices, NUMBER_OF_OK_TRANSACTIONS_IN_TRAIN_VALIDATION_DATASET,
+        fraud_indices = np.array(train_and_validation[train_and_validation.Class == 1].index) #te atrybuty nie działają
+        normal_indices = np.array(train_and_validation[train_and_validation.Class == 0].index)
+        random_normal_indices = np.random.choice(normal_indices, NUMBER_OF_OK_TRANSACTIONS_IN_TRAIN_VALIDATION_DATASET,
                                              replace=False)
-    random_normal_indices = np.array(random_normal_indices)
-    under_sample_indices = np.concatenate([fraud_indices, random_normal_indices])
-    under_sample_dataset = dataset.iloc[under_sample_indices, :]
+        random_normal_indices = np.array(random_normal_indices)
+        under_sample_indices = np.concatenate([fraud_indices, random_normal_indices])
+        under_sample_dataset = dataset.iloc[under_sample_indices, :]
     # Shuffle train and validation dataset
-    under_sample_dataset = under_sample_dataset.sample(frac=1)
+        under_sample_dataset = under_sample_dataset.sample(frac=1)
     # Convert training and validation dataset to numpy array
-    under_sample_dataset = under_sample_dataset.values
+        under_sample_dataset = under_sample_dataset.values
 
-    train, validation = train_test_split(under_sample_dataset, test_size=0.3, random_state=0)
+        train, validation = train_test_split(under_sample_dataset, test_size=0.3, random_state=0)
 
-    x_train = train[:, :-1]
-    y_train = train[:, -1:]
+        x_train = train[:, :-1]
+        y_train = train[:, -1:]
 
-    x_validation = validation[:, :-1]
-    y_validation = validation[:, -1:]
+        x_validation = validation[:, :-1]
+        y_validation = validation[:, -1:]
 
-    model = NeuralNetwork(learning_rate=0.00001, batch_size=50, epochs=80, loss='mse', regular_lambda=0.07)
-    model.add_layer(input_dim=x_train.shape[1], neurons_number=512, activation='relu')
-    model.add_layer(input_dim=512, neurons_number=1, activation='sigmoid')
+        model = NeuralNetwork(learning_rate=0.00001, batch_size=50, epochs=80, loss='mse', regular_lambda=0.07)
+        model.add_layer(input_dim=x_train.shape[1], neurons_number=512, activation='relu')
+        model.add_layer(input_dim=512, neurons_number=1, activation='sigmoid')
 
-    model.fit(x_train, y_train, x_validation, y_validation)
+        model.fit(x_train, y_train, x_validation, y_validation)
 
-    print("\nValidation dataset evaluation:")
-    model.evaluate(x_validation, y_validation)
-    model.plot_loss()
+        print("\nValidation dataset evaluation:")
+        model.evaluate(x_validation, y_validation)
+        model.plot_loss()
 
-    print("\nTest dataset evaluation:")
-    model.evaluate(x_test, y_test)
-    model.plot_confusion_matrix(x_test, y_test)
-    # print(model.layers[0].weights)
+        print("\nTest dataset evaluation:")
+        model.evaluate(x_test, y_test)
+        model.plot_confusion_matrix(x_test, y_test)
+# print(model.layers[0].weights)
