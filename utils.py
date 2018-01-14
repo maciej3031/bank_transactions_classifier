@@ -59,6 +59,12 @@ def get_under_sample_dataset(dataset, train_and_validation):
     under_sample_indices = np.concatenate([fraud_indices, random_normal_indices])
     return dataset.iloc[under_sample_indices, :].sample(frac=1)
 
+def get_radnom_normal_indices(dataset,train_and_validation):
+    fraud_indices = np.array(train_and_validation[train_and_validation.Class == 1].index)
+    normal_indices = np.array(train_and_validation[train_and_validation.Class == 0].index)
+    random_normal_indices = np.array(np.random.choice(normal_indices, fraud_indices.shape[0], replace=False))
+    return dataset.iloc[random_normal_indices, :].sample(frac=1)
+
 
 def plot_loss(epochs, training_history, validation_history):
     x_axis = range(0, epochs)
