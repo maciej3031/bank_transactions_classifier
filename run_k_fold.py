@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 from model import NeuralNetwork
-from utils import k_fold_split_data, split_data, plot_confusion_matrix, plot_loss, get_under_sample_dataset
+from utils import k_fold_split_data, split_data, plot_confusion_matrix, plot_loss, get_under_sample_dataset, get_radnom_normal_indices
 
 if __name__ == '__main__':
     dataset = pd.read_csv(os.path.join( 'creditcard.csv'))
@@ -19,30 +19,35 @@ if __name__ == '__main__':
     x_test = test[:, :-1]
     y_test = test[:, -1:]
 
-    #Split good and bad transactions
-    fraud_indices = np.array(train_and_validation[train_and_validation.Class == 1].index)
-    normal_indices = np.array(train_and_validation[train_and_validation.Class == 0].index)
+
 
     # Create balanced, under sample train and validation dataset
-    under_sample_dataset = get_under_sample_dataset(dataset, train_and_validation)
+    #under_sample_dataset = get_under_sample_dataset(dataset, train_and_validation)
 
     # Convert training and validation dataset to numpy array
-    under_sample_dataset = under_sample_dataset.values
+    #under_sample_dataset = under_sample_dataset.values
+
+    #Create array with only bad transactions
+    fraud_indices = np.array(train_and_validation[train_and_validation.Class == 1].index)
+    fraud_indices = dataset.iloc[fraud_indices, :].sample(frac=1)
+    fraud_indices = fraud_indices.values
 
     # k-fold validation with k=5
     k_fold_split_array = k_fold_split_data(fraud_indices, 5)
     models = []
     for n, validation in enumerate(k_fold_split_array):
-
+        #print(k_fold_split_array)
         #losowanie dobrych tranzakcji
-        random_normal_indices = np.array(np.random.choice(normal_indices, fraud_indices.shape[0], replace=False))
-        np.random.shuffle(random_normal_indices)
-        normal_indices_split_array = np.array_split(random_normal_indices, 5)
+        random_normal_indices = get_radnom_normal_indices(dataset,train_and_validation)
+        random_normal_indices = random_normal_indices.values
 
+        normal_indices_split_array = k_fold_split_data(random_normal_indices, 5)
         validation_normal_indices = normal_indices_split_array.pop(n)
+        normal_indices_split_array = np.concatenate(normal_indices_split_array)
 
         train = k_fold_split_array.copy()
         train.pop(n)
+        train = np.concatenate(train)
         train = np.concatenate([train,normal_indices_split_array])
         np.random.shuffle(train)
 
