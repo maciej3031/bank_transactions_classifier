@@ -7,7 +7,7 @@ from model import NeuralNetwork
 from utils import k_fold_split_data, split_data, plot_confusion_matrix, plot_loss, get_under_sample_dataset
 
 if __name__ == '__main__':
-    dataset = pd.read_csv(os.path.join('data', 'creditcard.csv'))
+    dataset = pd.read_csv(os.path.join( 'creditcard.csv'))
     assert not dataset.isnull().values.any()
     dataset = dataset.drop(['Time', 'Amount'], axis=1)
 
@@ -19,6 +19,10 @@ if __name__ == '__main__':
     x_test = test[:, :-1]
     y_test = test[:, -1:]
 
+    #Split good and bad transactions
+    fraud_indices = np.array(train_and_validation[train_and_validation.Class == 1].index)
+    normal_indices = np.array(train_and_validation[train_and_validation.Class == 0].index)
+
     # Create balanced, under sample train and validation dataset
     under_sample_dataset = get_under_sample_dataset(dataset, train_and_validation)
 
@@ -26,15 +30,27 @@ if __name__ == '__main__':
     under_sample_dataset = under_sample_dataset.values
 
     # k-fold validation with k=5
-    k_fold_split_array = k_fold_split_data(under_sample_dataset, 5)
+    k_fold_split_array = k_fold_split_data(fraud_indices, 5)
     models = []
     for n, validation in enumerate(k_fold_split_array):
+
+        #losowanie dobrych tranzakcji
+        random_normal_indices = np.array(np.random.choice(normal_indices, fraud_indices.shape[0], replace=False))
+        np.random.shuffle(random_normal_indices)
+        normal_indices_split_array = np.array_split(random_normal_indices, 5)
+
+        validation_normal_indices = normal_indices_split_array.pop(n)
+
         train = k_fold_split_array.copy()
         train.pop(n)
-        train = np.concatenate(train)
+        train = np.concatenate([train,normal_indices_split_array])
+        np.random.shuffle(train)
 
         x_train = train[:, :-1]
         y_train = train[:, -1:]
+
+        validation = np.concatenate([validation,validation_normal_indices])
+        np.random.shuffle(validation)
 
         x_validation = validation[:, :-1]
         y_validation = validation[:, -1:]
