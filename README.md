@@ -1,14 +1,8 @@
-﻿# bank_transactions_classifier
+# Bank Transactions Classfier
  
- **1. Data exploring**
-  - czy są jakieś nulle?
-  - wykres ilustrujący imbalance
-  - czy zmienne są liniowo niezależne?
-  - time -> zależność między fraudami, a godziną / między fraudami, a minutą
-  - amount -> zależność między fraudami, a wielkością zmiennej
-  - amount -> normalizacja
+**1. Data exploring**
 
-**2. Prosta sieć z wykorzystaniem Keras lub Tensorflow, wytrenować, zobaczyć jak działa i jaką dokładność możemy osiagnąć w prostej sieci typu 'fully connected'. Do opracowania w Jupyterze (najlepiej na Kaggle'u, bo już jest dataset wgrany)**
+**2. Prosta sieć z wykorzystaniem Keras, wytrenować, zobaczyć jak działa i jaką dokładność możemy osiagnąć w prostej sieci typu 'fully connected'. Do opracowania w Jupyterze**
 
 **3. Zaimplementowac wybraną architekturę sieci wraz ze wszystkimi niezbędnymi algorytmami w pythonie**
 
